@@ -5,8 +5,8 @@ import EvaluationPanel from "../components/EvaluationPanel";
 import EvaluationTable from "../components/EvaluationTable";
 import useLocalStorage from "../hooks/useLocalStorage";
 import Toaster from "../components/Toaster";
+import ModelSelector from "../components/ModelSelector";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-
 
 // Initialize Gemini client
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
@@ -16,6 +16,7 @@ export default function Evaluate() {
   const [evaluations, setEvaluations] = useLocalStorage("evaluations", []);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [model, setModel] = useState("gemini-2.5-flash"); // default model
 
   // 🔔 Utility function to trigger toast
   const triggerToast = (message) => {
@@ -29,7 +30,10 @@ export default function Evaluate() {
 
   const handlePromptSubmit = async (prompt) => {
 
-    console.log("Loaded API key:", import.meta.env.VITE_GEMINI_API_KEY ? "✅ Present" : "❌ Missing");
+    console.log(
+      "Loaded API key:",
+      import.meta.env.VITE_GEMINI_API_KEY ? "✅ Present" : "❌ Missing"
+    );
 
     // old : Simulating model output for now
     // const mockResponse = `This is a mock response for: ${prompt}.`;
@@ -85,12 +89,19 @@ export default function Evaluate() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
+
       {/* ✅ Centralized Toaster */}
       {showToast && <Toaster message={toastMessage} />}
+      
+      {/* 🧠 Model Selector */}
+      <ModelSelector model={model} setModel={setModel} />
+
+      {/* 🧩 Evaluation Interface */}
       <PromptInput onSubmit={handlePromptSubmit} />
       <ResponseViewer response={response} />
       {response && <EvaluationPanel onSave={handleSaveEvaluation} />}
       <EvaluationTable evaluations={evaluations} />
+      
       {/* 🧹 Clear All Button */}
       {evaluations.length > 0 && (
         <div className="flex justify-end mt-6">
