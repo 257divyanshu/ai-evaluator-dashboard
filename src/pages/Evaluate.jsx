@@ -5,6 +5,11 @@ import EvaluationPanel from "../components/EvaluationPanel";
 import EvaluationTable from "../components/EvaluationTable";
 import useLocalStorage from "../hooks/useLocalStorage";
 import Toaster from "../components/Toaster";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+
+// Initialize Gemini client
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
 export default function Evaluate() {
   const [response, setResponse] = useState("");
@@ -22,10 +27,35 @@ export default function Evaluate() {
     }, 2000);
   };
 
-  const handlePromptSubmit = (prompt) => {
-    // Simulate model output for now
-    const mockResponse = `This is a mock response for: ${prompt}.`;
-    setResponse(mockResponse);
+  const handlePromptSubmit = async (prompt) => {
+
+    console.log("Loaded API key:", import.meta.env.VITE_GEMINI_API_KEY ? "✅ Present" : "❌ Missing");
+
+    // old : Simulating model output for now
+    // const mockResponse = `This is a mock response for: ${prompt}.`;
+    // setResponse(mockResponse);
+
+    // new : fetching a real response
+    setResponse("⏳ Generating response...");
+
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+      // generateContent() syntax changed slightly in new SDK
+      const result = await model.generateContent(prompt);
+      const output = result.response.text();
+
+      if (output) {
+        setResponse(output);
+        triggerToast("🤖 Gemini response generated successfully!");
+      } else {
+        throw new Error("Empty response");
+      }
+    } catch (err) {
+      console.error("Gemini fetch error:", err);
+      triggerToast("⚠️ Failed to fetch Gemini response.");
+      setResponse("");
+    }
   };
 
   const handleSaveEvaluation = (scores) => {
