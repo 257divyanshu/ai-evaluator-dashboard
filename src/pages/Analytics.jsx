@@ -1,102 +1,219 @@
-import { useEffect, useState } from "react";
-import useLocalStorage from "../hooks/useLocalStorage";
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
 } from "recharts";
+import useLocalStorage from "../hooks/useLocalStorage";
+import { useMemo } from "react";
 
 export default function Analytics() {
   const [evaluations] = useLocalStorage("evaluations", []);
-  const [avgScores, setAvgScores] = useState({});
-  const [safetyStats, setSafetyStats] = useState({ safe: 0, unsafe: 0 });
 
-  useEffect(() => {
-    if (evaluations.length === 0) return;
-
-    // Compute averages
-    const totals = { accuracy: 0, relevance: 0, clarity: 0, helpfulness: 0 };
-    let safeCount = 0;
-
-    evaluations.forEach(e => {
-      totals.accuracy += +e.metrics.accuracy;
-      totals.relevance += +e.metrics.relevance;
-      totals.clarity += +e.metrics.clarity;
-      totals.helpfulness += +e.metrics.helpfulness;
-      if (e.metrics.safety === "Safe") safeCount++;
+  // --- 📊 Trend Data (grouped by date) ---
+  const trendData = useMemo(() => {
+    const grouped = {};
+    evaluations.forEach((e) => {
+      const d = e.timestamp.split("T")[0];
+      if (!grouped[d])
+        grouped[d] = {
+          date: d,
+          accuracy: 0,
+          relevance: 0,
+          clarity: 0,
+          helpfulness: 0,
+          count: 0,
+        };
+      grouped[d].accuracy += +e.metrics.accuracy;
+      grouped[d].relevance += +e.metrics.relevance;
+      grouped[d].clarity += +e.metrics.clarity;
+      grouped[d].helpfulness += +e.metrics.helpfulness;
+      grouped[d].count++;
     });
-
-    const len = evaluations.length;
-    setAvgScores({
-      accuracy: (totals.accuracy / len).toFixed(2),
-      relevance: (totals.relevance / len).toFixed(2),
-      clarity: (totals.clarity / len).toFixed(2),
-      helpfulness: (totals.helpfulness / len).toFixed(2),
-    });
-
-    setSafetyStats({
-      safe: safeCount,
-      unsafe: len - safeCount,
-    });
+    return Object.values(grouped).map((v) => ({
+      date: v.date,
+      accuracy: +(v.accuracy / v.count).toFixed(2),
+      relevance: +(v.relevance / v.count).toFixed(2),
+      clarity: +(v.clarity / v.count).toFixed(2),
+      helpfulness: +(v.helpfulness / v.count).toFixed(2),
+    }));
   }, [evaluations]);
 
-  const avgData = Object.entries(avgScores).map(([metric, value]) => ({
-    metric,
-    score: +value,
-  }));
+  // --- 🧩 Model-wise Data ---
+  const modelData = useMemo(() => {
+    const grouped = {};
+    evaluations.forEach((e) => {
+      const m = e.model || "Gemini";
+      if (!grouped[m])
+        grouped[m] = {
+          model: m,
+          accuracy: 0,
+          relevance: 0,
+          clarity: 0,
+          helpfulness: 0,
+          count: 0,
+        };
+      grouped[m].accuracy += +e.metrics.accuracy;
+      grouped[m].relevance += +e.metrics.relevance;
+      grouped[m].clarity += +e.metrics.clarity;
+      grouped[m].helpfulness += +e.metrics.helpfulness;
+      grouped[m].count++;
+    });
+    return Object.values(grouped).map((v) => ({
+      model: v.model,
+      accuracy: +(v.accuracy / v.count).toFixed(2),
+      relevance: +(v.relevance / v.count).toFixed(2),
+      clarity: +(v.clarity / v.count).toFixed(2),
+      helpfulness: +(v.helpfulness / v.count).toFixed(2),
+    }));
+  }, [evaluations]);
 
-  const COLORS = ["#16a34a", "#dc2626"];
+  // --- 💾 Export Handlers ---
+  const handleExport = (format = "csv") => {
+    if (!evaluations.length) return;
+    if (format === "csv") {
+      const header =
+        "Prompt,Accuracy,Relevance,Clarity,Helpfulness,Safety,Model,Timestamp\n";
+      const rows = evaluations.map(
+        (e) =>
+          `"${e.prompt}",${e.metrics.accuracy},${e.metrics.relevance},${e.metrics.clarity},${e.metrics.helpfulness},${e.metrics.safety},${e.model || "Gemini"},${e.timestamp}`
+      );
+      const blob = new Blob([header + rows.join("\n")], {
+        type: "text/csv",
+      });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "evaluations.csv";
+      link.click();
+    } else {
+      const blob = new Blob([JSON.stringify(evaluations, null, 2)], {
+        type: "application/json",
+      });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "evaluations.json";
+      link.click();
+    }
+  };
 
+  // --- 🧾 Render ---
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-10">
-      <h2 className="text-2xl font-semibold">Analytics Dashboard 📊</h2>
+    <div className="p-6 max-w-6xl mx-auto space-y-10">
+      <h2 className="text-2xl font-semibold">Advanced Analytics Dashboard 📊</h2>
 
       {evaluations.length === 0 ? (
         <p className="text-gray-500">No evaluations yet.</p>
       ) : (
         <>
-          {/* Average Scores */}
+          {/* --- Summary Cards --- */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-xl shadow text-center">
+              <h4 className="font-medium text-gray-500">Total Evaluations</h4>
+              <p className="text-2xl font-semibold">{evaluations.length}</p>
+            </div>
+            <div className="bg-white p-4 rounded-xl shadow text-center">
+              <h4 className="font-medium text-gray-500">Avg Accuracy</h4>
+              <p className="text-2xl font-semibold">
+                {trendData.length
+                  ? trendData[trendData.length - 1].accuracy
+                  : "-"}
+              </p>
+            </div>
+            <div className="bg-white p-4 rounded-xl shadow text-center">
+              <h4 className="font-medium text-gray-500">Avg Clarity</h4>
+              <p className="text-2xl font-semibold">
+                {trendData.length
+                  ? trendData[trendData.length - 1].clarity
+                  : "-"}
+              </p>
+            </div>
+            <div className="bg-white p-4 rounded-xl shadow text-center">
+              <h4 className="font-medium text-gray-500">Avg Helpfulness</h4>
+              <p className="text-2xl font-semibold">
+                {trendData.length
+                  ? trendData[trendData.length - 1].helpfulness
+                  : "-"}
+              </p>
+            </div>
+          </div>
+
+          {/* --- Trend Chart --- */}
           <div className="bg-white p-6 rounded-xl shadow">
-            <h3 className="font-semibold mb-4">Average Metric Scores</h3>
+            <h3 className="font-semibold mb-4">Performance Trend Over Time</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={avgData}>
-                <XAxis dataKey="metric" />
+              <LineChart data={trendData}>
+                <XAxis dataKey="date" />
                 <YAxis domain={[0, 5]} />
                 <Tooltip />
-                <Bar dataKey="score" fill="#2563eb" radius={[6, 6, 0, 0]} />
+                <Legend />
+                <Line
+                  dataKey="accuracy"
+                  stroke="#2563eb"
+                  strokeWidth={2}
+                  dot={{ fill: "#2563eb", r: 5 }}
+                  activeDot={{ r: 6 }}
+                />
+                <Line
+                  dataKey="relevance"
+                  stroke="#16a34a"
+                  strokeWidth={2}
+                  dot={{ fill: "#16a34a", r: 5 }}
+                  activeDot={{ r: 6 }}
+                />
+                <Line
+                  dataKey="clarity"
+                  stroke="#f59e0b"
+                  strokeWidth={2}
+                  dot={{ fill: "#f59e0b", r: 5 }}
+                  activeDot={{ r: 6 }}
+                />
+                <Line
+                  dataKey="helpfulness"
+                  stroke="#dc2626"
+                  strokeWidth={2}
+                  dot={{ fill: "#dc2626", r: 5 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* --- Model Comparison Chart --- */}
+          <div className="bg-white p-6 rounded-xl shadow">
+            <h3 className="font-semibold mb-4">Model-wise Comparison</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={modelData}>
+                <XAxis dataKey="model" />
+                <YAxis domain={[0, 5]} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="accuracy" fill="#2563eb" />
+                <Bar dataKey="clarity" fill="#f59e0b" />
+                <Bar dataKey="relevance" fill="#16a34a" />
+                <Bar dataKey="helpfulness" fill="#dc2626" />
               </BarChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Safety Distribution */}
-          <div className="bg-white p-6 rounded-xl shadow">
-            <h3 className="font-semibold mb-4">Safety / Bias Overview</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  dataKey="value"
-                  data={[
-                    { name: "Safe", value: safetyStats.safe },
-                    { name: "Unsafe", value: safetyStats.unsafe },
-                  ]}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  label
-                >
-                  {COLORS.map((color, i) => (
-                    <Cell key={i} fill={color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Summary */}
-          <div className="bg-white p-6 rounded-xl shadow">
-            <p>Total Evaluations: {evaluations.length}</p>
-            <p>
-              Safe: {safetyStats.safe} | Unsafe: {safetyStats.unsafe}
-            </p>
+          {/* --- Export Buttons --- */}
+          <div className="flex flex-wrap gap-3 justify-end">
+            <button
+              onClick={() => handleExport("csv")}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+            >
+              Export CSV
+            </button>
+            <button
+              onClick={() => handleExport("json")}
+              className="bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition"
+            >
+              Export JSON
+            </button>
           </div>
         </>
       )}
