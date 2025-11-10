@@ -1,34 +1,47 @@
 export default function EvaluationTable({ evaluations }) {
-  if (!evaluations.length)
-    return <p className="text-gray-500 italic">No evaluations yet.</p>;
+  if (!evaluations || evaluations.length === 0) {
+    return <p className="text-gray-500 mt-4">No evaluations yet.</p>;
+  }
 
   return (
-    <div className="bg-white p-4 rounded-xl shadow overflow-x-auto">
-      <h3 className="font-semibold text-lg mb-4">Saved Evaluations</h3>
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="bg-gray-100 text-left">
-            <th className="p-2">Prompt</th>
-            <th className="p-2">Accuracy</th>
-            <th className="p-2">Relevance</th>
-            <th className="p-2">Clarity</th>
-            <th className="p-2">Helpfulness</th>
-            <th className="p-2">Safety</th>
-            <th className="p-2">Notes</th>
+    <div className="mt-6 overflow-x-auto">
+      <table className="min-w-full border border-gray-200 rounded-xl">
+        <thead className="bg-gray-100 text-gray-700">
+          <tr>
+            <th className="py-2 px-4 border-b text-left">Prompt</th>
+            <th className="py-2 px-4 border-b text-left">Accuracy</th>
+            <th className="py-2 px-4 border-b text-left">Relevance</th>
+            <th className="py-2 px-4 border-b text-left">Clarity</th>
+            <th className="py-2 px-4 border-b text-left">Helpfulness</th>
+            <th className="py-2 px-4 border-b text-left">Type</th>
+            <th className="py-2 px-4 border-b text-left">Timestamp</th>
           </tr>
         </thead>
+
         <tbody>
-          {evaluations.map((e, i) => (
-            <tr key={i} className="border-t">
-              <td className="p-2">{e.prompt}</td>
-              <td className="p-2 text-center">{e.metrics.accuracy}</td>
-              <td className="p-2 text-center">{e.metrics.relevance}</td>
-              <td className="p-2 text-center">{e.metrics.clarity}</td>
-              <td className="p-2 text-center">{e.metrics.helpfulness}</td>
-              <td className="p-2 text-center">{e.metrics.safety}</td>
-              <td className="p-2">{e.metrics.notes || "-"}</td>
-            </tr>
-          ))}
+          {evaluations.map((e, index) => {
+            // 🧠 Use metrics if available, otherwise fallback to autoMetrics
+            const m = e.metrics || e.autoMetrics || {};
+
+            return (
+              <tr
+                key={index}
+                className="border-t hover:bg-gray-50 transition text-sm"
+              >
+                <td className="py-2 px-4 max-w-xs truncate">{e.prompt}</td>
+                <td className="py-2 px-4 text-center">{m.accuracy ?? "-"}</td>
+                <td className="py-2 px-4 text-center">{m.relevance ?? "-"}</td>
+                <td className="py-2 px-4 text-center">{m.clarity ?? "-"}</td>
+                <td className="py-2 px-4 text-center">{m.helpfulness ?? "-"}</td>
+                <td className="py-2 px-4 text-center">
+                  {e.autoMetrics ? "🤖 Auto" : "🧠 Manual"}
+                </td>
+                <td className="py-2 px-4 text-gray-500 text-xs">
+                  {new Date(e.timestamp).toLocaleString()}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

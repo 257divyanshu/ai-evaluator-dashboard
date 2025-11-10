@@ -6,19 +6,20 @@ import EvaluationTable from "../components/EvaluationTable";
 import useLocalStorage from "../hooks/useLocalStorage";
 import Toaster from "../components/Toaster";
 import ModelSelector from "../components/ModelSelector";
+import AutoEvaluator from "../components/AutoEvaluator";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Initialize Gemini client
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
 export default function Evaluate() {
+  const [prompt, setPrompt] = useState("");
   const [response, setResponse] = useState("");
   const [evaluations, setEvaluations] = useLocalStorage("evaluations", []);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
-  const [model, setModel] = useState("gemini-2.5-flash"); // default model
+  const [model, setModel] = useState("gemini-2.5-flash");
+  const [autoEvalDone, setAutoEvalDone] = useState(false); // 🆕 Added
 
-  // 🔔 Utility function to trigger toast
   const triggerToast = (message) => {
     setToastMessage(message);
     setShowToast(true);
@@ -28,25 +29,15 @@ export default function Evaluate() {
     }, 2000);
   };
 
-  const handlePromptSubmit = async (prompt) => {
-
-    console.log(
-      "Loaded API key:",
-      import.meta.env.VITE_GEMINI_API_KEY ? "✅ Present" : "❌ Missing"
-    );
-
-    // old : Simulating model output for now
-    // const mockResponse = `This is a mock response for: ${prompt}.`;
-    // setResponse(mockResponse);
-
-    // new : fetching a real response
+  // 🔹 When user submits a prompt, we reset auto-eval state
+  const handlePromptSubmit = async (userPrompt) => {
+    setPrompt(userPrompt);
     setResponse("⏳ Generating response...");
+    setAutoEvalDone(false); // 🆕 Reset here
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-      // generateContent() syntax changed slightly in new SDK
-      const result = await model.generateContent(prompt);
+      const modelInstance = genAI.getGenerativeModel({ model });
+      const result = await modelInstance.generateContent(userPrompt);
       const output = result.response.text();
 
       if (output) {
@@ -62,26 +53,37 @@ export default function Evaluate() {
     }
   };
 
-  const handleSaveEvaluation = (scores) => {
+  const handleAutoEvalComplete = (autoScores) => {
     const newEval = {
-      prompt: response.replace("This is a mock response for: ", "").slice(0, -1),
-      metrics: scores,
+      prompt,
+      response,
+      autoMetrics: autoScores,
+      model,
       timestamp: new Date().toISOString(),
     };
     setEvaluations([...evaluations, newEval]);
-    // 🧹 Clear AI response after save
+    setAutoEvalDone(true); // 🆕 Hide EvaluationPanel after auto-eval
+  };
+
+  const handleSaveEvaluation = (scores) => {
+    const newEval = {
+      prompt,
+      response,
+      metrics: scores,
+      model,
+      timestamp: new Date().toISOString(),
+    };
+    setEvaluations([...evaluations, newEval]);
     setResponse("");
-    // ✅ Show success toast
     triggerToast("✅ Evaluation saved successfully!");
   };
 
-  // 🧹 Handle clear all evaluations
   const handleClearAll = () => {
     const confirmClear = window.confirm(
       "Are you sure you want to clear all saved evaluations? This action cannot be undone."
     );
     if (confirmClear) {
-      setEvaluations([]); // clears localStorage automatically
+      setEvaluations([]);
       setResponse("");
       triggerToast("🗑️ All evaluations cleared!");
     }
@@ -89,20 +91,32 @@ export default function Evaluate() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-
-      {/* ✅ Centralized Toaster */}
       {showToast && <Toaster message={toastMessage} />}
-      
+
       {/* 🧠 Model Selector */}
       <ModelSelector model={model} setModel={setModel} />
 
       {/* 🧩 Evaluation Interface */}
       <PromptInput onSubmit={handlePromptSubmit} />
       <ResponseViewer response={response} />
-      {response && <EvaluationPanel onSave={handleSaveEvaluation} />}
+
+      {/* 🤖 Auto Evaluator */}
+      {response && (
+        <AutoEvaluator
+          prompt={prompt}
+          response={response}
+          onAutoEvalComplete={handleAutoEvalComplete}
+          onStartAutoEval={() => setAutoEvalDone(true)} // 🆕 Hides EvaluationPanel instantly
+        />
+      )}
+
+      {/* 🧠 Manual Evaluator (only if auto eval not done) */}
+      {response && !autoEvalDone && (
+        <EvaluationPanel onSave={handleSaveEvaluation} />
+      )}
+
       <EvaluationTable evaluations={evaluations} />
-      
-      {/* 🧹 Clear All Button */}
+
       {evaluations.length > 0 && (
         <div className="flex justify-end mt-6">
           <button
