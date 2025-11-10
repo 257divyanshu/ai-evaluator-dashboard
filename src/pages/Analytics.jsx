@@ -8,6 +8,9 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
 import useLocalStorage from "../hooks/useLocalStorage";
 import { useMemo } from "react";
@@ -20,7 +23,8 @@ export default function Analytics() {
     const grouped = {};
     evaluations.forEach((e) => {
       const d = e.timestamp.split("T")[0];
-      if (!grouped[d])
+      const m = e.metrics || e.autoMetrics || {}; // unified access
+      if (!grouped[d]) {
         grouped[d] = {
           date: d,
           accuracy: 0,
@@ -29,10 +33,11 @@ export default function Analytics() {
           helpfulness: 0,
           count: 0,
         };
-      grouped[d].accuracy += +e.metrics.accuracy;
-      grouped[d].relevance += +e.metrics.relevance;
-      grouped[d].clarity += +e.metrics.clarity;
-      grouped[d].helpfulness += +e.metrics.helpfulness;
+      }
+      grouped[d].accuracy += +m.accuracy || 0;
+      grouped[d].relevance += +m.relevance || 0;
+      grouped[d].clarity += +m.clarity || 0;
+      grouped[d].helpfulness += +m.helpfulness || 0;
       grouped[d].count++;
     });
     return Object.values(grouped).map((v) => ({
@@ -48,21 +53,23 @@ export default function Analytics() {
   const modelData = useMemo(() => {
     const grouped = {};
     evaluations.forEach((e) => {
-      const m = e.model || "Gemini";
-      if (!grouped[m])
-        grouped[m] = {
-          model: m,
+      const m = e.metrics || e.autoMetrics || {};
+      const model = e.model || "Gemini";
+      if (!grouped[model]) {
+        grouped[model] = {
+          model,
           accuracy: 0,
           relevance: 0,
           clarity: 0,
           helpfulness: 0,
           count: 0,
         };
-      grouped[m].accuracy += +e.metrics.accuracy;
-      grouped[m].relevance += +e.metrics.relevance;
-      grouped[m].clarity += +e.metrics.clarity;
-      grouped[m].helpfulness += +e.metrics.helpfulness;
-      grouped[m].count++;
+      }
+      grouped[model].accuracy += +m.accuracy || 0;
+      grouped[model].relevance += +m.relevance || 0;
+      grouped[model].clarity += +m.clarity || 0;
+      grouped[model].helpfulness += +m.helpfulness || 0;
+      grouped[model].count++;
     });
     return Object.values(grouped).map((v) => ({
       model: v.model,
@@ -73,16 +80,38 @@ export default function Analytics() {
     }));
   }, [evaluations]);
 
+  // --- 🛡️ Safety distribution (handles auto-evals without safety as "Unknown") ---
+  const safetyData = useMemo(() => {
+    let safe = 0, unsafe = 0, unknown = 0;
+    evaluations.forEach((e) => {
+      const m = e.metrics || e.autoMetrics || {};
+      if (m.safety === "Safe") safe++;
+      else if (m.safety === "Unsafe") unsafe++;
+      else unknown++; // no safety label (e.g., auto-eval)
+    });
+    return [
+      { name: "Safe", value: safe },
+      { name: "Unsafe", value: unsafe },
+      { name: "Unknown", value: unknown },
+    ];
+  }, [evaluations]);
+
+  const PIE_COLORS = ["#16a34a", "#dc2626", "#6b7280"]; // green, red, gray
+
   // --- 💾 Export Handlers ---
   const handleExport = (format = "csv") => {
     if (!evaluations.length) return;
     if (format === "csv") {
       const header =
-        "Prompt,Accuracy,Relevance,Clarity,Helpfulness,Safety,Model,Timestamp\n";
-      const rows = evaluations.map(
-        (e) =>
-          `"${e.prompt}",${e.metrics.accuracy},${e.metrics.relevance},${e.metrics.clarity},${e.metrics.helpfulness},${e.metrics.safety},${e.model || "Gemini"},${e.timestamp}`
-      );
+        "Prompt,Accuracy,Relevance,Clarity,Helpfulness,Safety,Model,Type,Timestamp\n";
+      const rows = evaluations.map((e) => {
+        const m = e.metrics || e.autoMetrics || {};
+        return `"${e.prompt}",${m.accuracy ?? ""},${m.relevance ?? ""},${
+          m.clarity ?? ""
+        },${m.helpfulness ?? ""},${m.safety ?? ""},${e.model || "Gemini"},${
+          e.autoMetrics ? "Auto" : "Manual"
+        },${e.timestamp}`;
+      });
       const blob = new Blob([header + rows.join("\n")], {
         type: "text/csv",
       });
@@ -101,7 +130,6 @@ export default function Analytics() {
     }
   };
 
-  // --- 🧾 Render ---
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-10">
       <h2 className="text-2xl font-semibold">Advanced Analytics Dashboard 📊</h2>
@@ -111,7 +139,7 @@ export default function Analytics() {
       ) : (
         <>
           {/* --- Summary Cards --- */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             <div className="bg-white p-4 rounded-xl shadow text-center">
               <h4 className="font-medium text-gray-500">Total Evaluations</h4>
               <p className="text-2xl font-semibold">{evaluations.length}</p>
@@ -119,25 +147,25 @@ export default function Analytics() {
             <div className="bg-white p-4 rounded-xl shadow text-center">
               <h4 className="font-medium text-gray-500">Avg Accuracy</h4>
               <p className="text-2xl font-semibold">
-                {trendData.length
-                  ? trendData[trendData.length - 1].accuracy
-                  : "-"}
+                {trendData.length ? trendData[trendData.length - 1].accuracy : "-"}
+              </p>
+            </div>
+            <div className="bg-white p-4 rounded-xl shadow text-center">
+              <h4 className="font-medium text-gray-500">Avg Relevance</h4>
+              <p className="text-2xl font-semibold">
+                {trendData.length ? trendData[trendData.length - 1].relevance : "-"}
               </p>
             </div>
             <div className="bg-white p-4 rounded-xl shadow text-center">
               <h4 className="font-medium text-gray-500">Avg Clarity</h4>
               <p className="text-2xl font-semibold">
-                {trendData.length
-                  ? trendData[trendData.length - 1].clarity
-                  : "-"}
+                {trendData.length ? trendData[trendData.length - 1].clarity : "-"}
               </p>
             </div>
             <div className="bg-white p-4 rounded-xl shadow text-center">
               <h4 className="font-medium text-gray-500">Avg Helpfulness</h4>
               <p className="text-2xl font-semibold">
-                {trendData.length
-                  ? trendData[trendData.length - 1].helpfulness
-                  : "-"}
+                {trendData.length ? trendData[trendData.length - 1].helpfulness : "-"}
               </p>
             </div>
           </div>
@@ -151,34 +179,10 @@ export default function Analytics() {
                 <YAxis domain={[0, 5]} />
                 <Tooltip />
                 <Legend />
-                <Line
-                  dataKey="accuracy"
-                  stroke="#2563eb"
-                  strokeWidth={2}
-                  dot={{ fill: "#2563eb", r: 5 }}
-                  activeDot={{ r: 6 }}
-                />
-                <Line
-                  dataKey="relevance"
-                  stroke="#16a34a"
-                  strokeWidth={2}
-                  dot={{ fill: "#16a34a", r: 5 }}
-                  activeDot={{ r: 6 }}
-                />
-                <Line
-                  dataKey="clarity"
-                  stroke="#f59e0b"
-                  strokeWidth={2}
-                  dot={{ fill: "#f59e0b", r: 5 }}
-                  activeDot={{ r: 6 }}
-                />
-                <Line
-                  dataKey="helpfulness"
-                  stroke="#dc2626"
-                  strokeWidth={2}
-                  dot={{ fill: "#dc2626", r: 5 }}
-                  activeDot={{ r: 6 }}
-                />
+                <Line dataKey="accuracy" stroke="#2563eb" />
+                <Line dataKey="relevance" stroke="#16a34a" />
+                <Line dataKey="clarity" stroke="#f59e0b" />
+                <Line dataKey="helpfulness" stroke="#dc2626" />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -197,6 +201,30 @@ export default function Analytics() {
                 <Bar dataKey="relevance" fill="#16a34a" />
                 <Bar dataKey="helpfulness" fill="#dc2626" />
               </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* --- Safety Distribution (Pie) --- */}
+          <div className="bg-white p-6 rounded-xl shadow">
+            <h3 className="font-semibold mb-4">Safety Distribution</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={safetyData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  label
+                >
+                  {safetyData.map((_, i) => (
+                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
             </ResponsiveContainer>
           </div>
 
