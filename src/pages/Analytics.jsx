@@ -1,3 +1,4 @@
+import { useRef, useState, useEffect } from "react";
 import {
   LineChart,
   Line,
@@ -106,11 +107,9 @@ export default function Analytics() {
         "Prompt,Accuracy,Relevance,Clarity,Helpfulness,Safety,Model,Type,Timestamp\n";
       const rows = evaluations.map((e) => {
         const m = e.metrics || e.autoMetrics || {};
-        return `"${e.prompt}",${m.accuracy ?? ""},${m.relevance ?? ""},${
-          m.clarity ?? ""
-        },${m.helpfulness ?? ""},${m.safety ?? ""},${e.model || "Gemini"},${
-          e.autoMetrics ? "Auto" : "Manual"
-        },${e.timestamp}`;
+        return `"${e.prompt}",${m.accuracy ?? ""},${m.relevance ?? ""},${m.clarity ?? ""
+          },${m.helpfulness ?? ""},${m.safety ?? ""},${e.model || "Gemini"},${e.autoMetrics ? "Auto" : "Manual"
+          },${e.timestamp}`;
       });
       const blob = new Blob([header + rows.join("\n")], {
         type: "text/csv",
@@ -187,21 +186,25 @@ export default function Analytics() {
             </ResponsiveContainer>
           </div>
 
-          {/* --- Model Comparison Chart --- */}
+          {/* --- Model Comparison (with scroll hint) --- */}
           <div className="bg-white p-6 rounded-xl shadow">
             <h3 className="font-semibold mb-4">Model-wise Comparison</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={modelData}>
-                <XAxis dataKey="model" />
-                <YAxis domain={[0, 5]} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="accuracy" fill="#2563eb" />
-                <Bar dataKey="clarity" fill="#f59e0b" />
-                <Bar dataKey="relevance" fill="#16a34a" />
-                <Bar dataKey="helpfulness" fill="#dc2626" />
-              </BarChart>
-            </ResponsiveContainer>
+
+            {/* Scrollable wrapper with hint */}
+            <ScrollableChartWrapper minWidth={Math.max(600, modelData.length * 260)}>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={modelData}>
+                  <XAxis dataKey="model" />
+                  <YAxis domain={[0, 5]} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="accuracy" fill="#2563eb" />
+                  <Bar dataKey="clarity" fill="#f59e0b" />
+                  <Bar dataKey="relevance" fill="#16a34a" />
+                  <Bar dataKey="helpfulness" fill="#dc2626" />
+                </BarChart>
+              </ResponsiveContainer>
+            </ScrollableChartWrapper>
           </div>
 
           {/* --- Safety Distribution (Pie) --- */}
@@ -244,6 +247,70 @@ export default function Analytics() {
             </button>
           </div>
         </>
+      )}
+    </div>
+  );
+}
+function ScrollableChartWrapper({ children, minWidth = 600 }) {
+  const scrollerRef = useRef(null);
+  const [showHint, setShowHint] = useState(false); // initially false
+
+  // 🧠 Detect overflow when component mounts or resizes
+  useEffect(() => {
+    const checkOverflow = () => {
+      if (!scrollerRef.current) return;
+      const hasOverflow =
+        scrollerRef.current.scrollWidth > scrollerRef.current.clientWidth;
+      setShowHint(hasOverflow);
+    };
+
+    // Run check initially
+    checkOverflow();
+
+    // Also recheck on resize
+    window.addEventListener("resize", checkOverflow);
+    return () => window.removeEventListener("resize", checkOverflow);
+  }, []);
+
+  // 🧭 Hide hint after user scrolls once
+  const onScroll = () => {
+    if (!scrollerRef.current) return;
+    if (scrollerRef.current.scrollLeft > 2) {
+      setShowHint(false);
+    }
+  };
+
+  return (
+    <div className="relative">
+      {/* 📊 Scrollable container */}
+      <div
+        ref={scrollerRef}
+        onScroll={onScroll}
+        className="w-full overflow-x-scroll"
+        style={{
+          WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "thin",
+        }}
+      >
+        <div className="pr-2" style={{ minWidth }}>
+          {children}
+        </div>
+      </div>
+
+      {/* 💡 Scroll hint — only shows when overflow exists */}
+      {showHint && (
+        <div
+          className="pointer-events-none absolute inset-y-0 right-0 flex items-center"
+          style={{
+            width: 84,
+            background:
+              "linear-gradient(270deg, rgba(238,242,255,1) 0%, rgba(238,242,255,0.75) 40%, rgba(238,242,255,0) 100%)",
+          }}
+        >
+          <div className="ml-auto mr-2 mb-8 rounded-full bg-gray-800/80 text-white text-xs px-2 py-1 shadow animate-pulse">
+            Swipe →
+          </div>
+        </div>
       )}
     </div>
   );
