@@ -105,6 +105,7 @@ export default function Evaluate() {
         <AutoEvaluator
           prompt={prompt}
           response={response}
+          model={model} // ✅ add this
           onAutoEvalComplete={handleAutoEvalComplete}
           onStartAutoEval={() => setAutoEvalDone(true)} // 🆕 Hides EvaluationPanel instantly
         />

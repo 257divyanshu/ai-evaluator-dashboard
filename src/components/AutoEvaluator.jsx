@@ -4,7 +4,13 @@ import Toaster from "./Toaster";
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
-export default function AutoEvaluator({ prompt, response, onAutoEvalComplete, onStartAutoEval }) {
+export default function AutoEvaluator({
+  prompt,
+  response,
+  model, // ✅ get currently selected model
+  onAutoEvalComplete,
+  onStartAutoEval,
+}) {
   const [loading, setLoading] = useState(false);
   const [autoEval, setAutoEval] = useState(null);
   const [showToast, setShowToast] = useState(false);
@@ -16,7 +22,7 @@ export default function AutoEvaluator({ prompt, response, onAutoEvalComplete, on
     setTimeout(() => setShowToast(false), 2000);
   };
 
-  // 🧹 Reset auto evaluation when a new prompt or response arrives
+  // 🧹 Reset auto evaluation when prompt or response changes
   useEffect(() => {
     if (prompt || response) {
       setAutoEval(null);
@@ -26,13 +32,19 @@ export default function AutoEvaluator({ prompt, response, onAutoEvalComplete, on
   const handleAutoEvaluate = async () => {
     if (!prompt || !response) return;
 
-    // 🔹 Notify parent immediately that auto eval started
     if (onStartAutoEval) onStartAutoEval();
 
     setLoading(true);
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+      // ✅ Use the same model as selected by user
+      const evaluatorModel = genAI.getGenerativeModel({ model: model || "gemini-2.5-pro" });
+
+      // 🔍 Log which model is being used
+      console.log(
+        `%c🔎 AutoEvaluator: Requesting evaluation from model → ${model}`,
+        "color: #4f46e5; font-weight: bold;"
+      );
 
       const rubric = `
 You are an AI evaluator. Evaluate the following AI response on a scale of 1–5
@@ -52,9 +64,10 @@ Return only a valid JSON in this format:
 }
 
 PROMPT: """${prompt}"""
-RESPONSE: """${response}"""`;
+RESPONSE: """${response}"""
+`;
 
-      const result = await model.generateContent(rubric);
+      const result = await evaluatorModel.generateContent(rubric);
       const text = result.response.text();
 
       const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -91,10 +104,18 @@ RESPONSE: """${response}"""`;
 
       {autoEval && (
         <div className="mt-4 bg-gray-50 border p-3 rounded-lg text-sm">
-          <p><strong>Accuracy:</strong> {autoEval.accuracy}</p>
-          <p><strong>Relevance:</strong> {autoEval.relevance}</p>
-          <p><strong>Clarity:</strong> {autoEval.clarity}</p>
-          <p><strong>Helpfulness:</strong> {autoEval.helpfulness}</p>
+          <p>
+            <strong>Accuracy:</strong> {autoEval.accuracy}
+          </p>
+          <p>
+            <strong>Relevance:</strong> {autoEval.relevance}
+          </p>
+          <p>
+            <strong>Clarity:</strong> {autoEval.clarity}
+          </p>
+          <p>
+            <strong>Helpfulness:</strong> {autoEval.helpfulness}
+          </p>
           <p className="mt-2 text-gray-600 italic">💬 {autoEval.comment}</p>
         </div>
       )}
