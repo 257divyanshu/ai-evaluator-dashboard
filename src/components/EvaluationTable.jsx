@@ -6,7 +6,7 @@ export default function EvaluationTable({ evaluations }) {
   return (
     <div className="mt-6 overflow-x-auto">
       <table className="min-w-full border border-gray-200 rounded-xl">
-        <thead className="bg-gray-100 text-gray-700">
+        <thead className="bg-white text-gray-700">
           <tr>
             <th className="py-2 px-4 border-b text-left w-56">Prompt</th>
             <th className="py-2 px-4 border-b text-center">Accuracy</th>
@@ -19,7 +19,7 @@ export default function EvaluationTable({ evaluations }) {
           </tr>
         </thead>
 
-        <tbody>
+        <tbody className="bg-white">
           {evaluations.map((e, index) => {
             const m = e.metrics || e.autoMetrics || {};
             const note = m.comment || m.note || "";
@@ -73,7 +73,7 @@ export default function EvaluationTable({ evaluations }) {
 
                 {/* Type */}
                 <td className="py-2 px-4 text-center">
-                  {e.autoMetrics ? "🤖 Auto" : "🧠 Manual"}
+                  {e.autoMetrics ? "Auto" : "Manual"}
                 </td>
 
                 {/* 📝 Note tooltip (same as before) */}
