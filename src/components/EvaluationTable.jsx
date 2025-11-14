@@ -8,21 +8,21 @@ export default function EvaluationTable({ evaluations }) {
       <table className="min-w-full border border-gray-200 rounded-xl">
         <thead className="bg-white text-gray-700">
           <tr>
-            <th className="py-2 px-4 border-b text-left w-56">Prompt</th>
-            <th className="py-2 px-4 border-b text-center">Accuracy</th>
-            <th className="py-2 px-4 border-b text-center">Relevance</th>
-            <th className="py-2 px-4 border-b text-center">Clarity</th>
-            <th className="py-2 px-4 border-b text-center">Helpfulness</th>
-            <th className="py-2 px-4 border-b text-center">Type</th>
-            <th className="py-2 px-4 border-b text-center">Note</th>
-            <th className="py-2 px-4 border-b text-left">Timestamp</th>
+            <th className="p-4 border-b text-left w-56">Prompt</th>
+            <th className="p-4 border-b text-center">Accuracy</th>
+            <th className="p-4 border-b text-center">Relevance</th>
+            <th className="p-4 border-b text-center">Clarity</th>
+            <th className="p-4 border-b text-center">Helpfulness</th>
+            <th className="p-4 border-b text-center">Type</th>
+            <th className="p-4 border-b text-center">Note</th>
+            <th className="p-4 border-b text-left">Timestamp</th>
           </tr>
         </thead>
 
         <tbody className="bg-white">
           {evaluations.map((e, index) => {
             const m = e.metrics || e.autoMetrics || {};
-            const note = m.comment || m.note || "";
+            const note = m.comment || m.notes || "";
             const promptText = e.prompt || "";
 
             return (
