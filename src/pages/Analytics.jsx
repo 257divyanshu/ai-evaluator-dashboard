@@ -174,7 +174,7 @@ export default function Analytics() {
             <h3 className="font-semibold mb-4">Performance Trend Over Time</h3>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={trendData}>
-                <XAxis dataKey="date" />
+                <XAxis dataKey="date" padding={{ left: 50, right: 50 }} />
                 <YAxis domain={[0, 5]} />
                 <Tooltip />
                 <Legend />
