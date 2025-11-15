@@ -35,15 +35,14 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col items-center text-center p-6">
+    <div className="min-h-screen flex flex-col items-center text-center p-8">
       {/* 🧠 Hero Section */}
       <div className="flex flex-col items-center justify-center flex-1 max-w-4xl">
         <h1 className="text-4xl sm:text-5xl font-bold text-gray-800 mb-4 leading-tight">
           Evaluate, Compare & Improve AI Responses Scientifically.
         </h1>
         <p className="text-gray-600 max-w-2xl mb-8 text-lg">
-          A lightweight LLM evaluation dashboard that lets you assess AI outputs
-          for accuracy, clarity, relevance, and helpfulness.
+          Designed for rigorous LLM evaluation with auto-scoring, performance trends, and safety insights.
         </p>
 
         <div className="flex gap-4 flex-wrap justify-center mb-10">
